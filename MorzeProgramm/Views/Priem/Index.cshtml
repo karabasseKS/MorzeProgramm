@@ -1,0 +1,203 @@
+﻿@{
+    ViewData["Title"] = "Приём символов";
+}
+
+<h2>Тренировка приёма Морзе</h2>
+
+<div>
+    <label>Тональность (Гц):</label>
+    <input type="number" id="frequency" value="700" min="100" max="2000" />
+
+    <label>Громкость (0.0 - 1.0):</label>
+    <input type="number" id="volume" value="0.5" step="0.1" min="0" max="1" />
+
+    <label>Символы:</label>
+    <select id="symbolSet">
+        <option value="letters">Только буквы</option>
+        <option value="numbers">Только цифры</option>
+        <option value="all" selected>Все</option>
+    </select>
+
+    <label>Режим:</label>
+    <select id="mode">
+        <option value="train">Обычная тренировка</option>
+        <option value="speed">Тест на скорость (1 мин)</option>
+    </select>
+
+    <label>Скорость передачи:</label>
+    <select id="speedMode">
+        <option value="slow">Медленно</option>
+        <option value="fast">Быстро</option>
+    </select>
+
+    <button onclick="startSession()">Начать</button>
+</div>
+
+<div style="margin-top: 30px;">
+    <p id="symbolDisplay" style="font-size: 24px;">Нажми "Начать"</p>
+    <p id="feedback" style="font-weight: bold;"></p>
+</div>
+
+@section Scripts {
+    <script>
+        const morseLetters = {
+            'А': '.-', 'Б': '-...', 'В': '.--', 'Г': '--.', 'Д': '-..',
+            'Е': '.', 'Ж': '...-', 'З': '--..', 'И': '..', 'Й': '.---',
+            'К': '-.-', 'Л': '.-..', 'М': '--', 'Н': '-.', 'О': '---',
+            'П': '.--.', 'Р': '.-.', 'С': '...', 'Т': '-', 'У': '..-',
+            'Ф': '..-.', 'Х': '....', 'Ц': '-.-.', 'Ч': '---.', 'Ш': '----',
+            'Щ': '--.-', 'Ы': '-.--', 'Ь': '-..-', 'Э': '..-..',
+            'Ю': '..--', 'Я': '.-.-'
+        };
+
+        const morseNumbers = {
+            '0': '-----', '1': '.----', '2': '..---', '3': '...--',
+            '4': '....-', '5': '.....', '6': '-....', '7': '--...',
+            '8': '---..', '9': '----.'
+        };
+
+        let currentSymbol = '';
+        let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let correctCount = 0;
+        let totalCount = 0;
+        let testStartTime = null;
+        let testDuration = 60000;
+        let testTimer = null;
+        let isSpeedMode = false;
+
+        const translit = {
+            'F': 'А', ',': 'Б', 'D': 'В', 'U': 'Г', 'L': 'Д', 'T': 'Е',
+            ';': 'Ж', 'P': 'З', 'B': 'И', 'Q': 'Й', 'R': 'К', 'K': 'Л',
+            'V': 'М', 'Y': 'Н', 'J': 'О', 'G': 'П', 'H': 'Р', 'C': 'С',
+            'N': 'Т', 'E': 'У', 'A': 'Ф', '[': 'Х', 'W': 'Ц', 'X': 'Ч',
+            'I': 'Ш', 'O': 'Щ', 'Z': 'Ы', 'M': 'Ь', '\'': 'Э',
+            '.': 'Ю', '/': 'Я'
+        };
+
+        function getSelectedSet() {
+            const mode = document.getElementById('symbolSet').value;
+            if (mode === 'letters') return Object.keys(morseLetters);
+            if (mode === 'numbers') return Object.keys(morseNumbers);
+            return [...Object.keys(morseLetters), ...Object.keys(morseNumbers)];
+        }
+
+        function getMorseDict() {
+            const mode = document.getElementById('symbolSet').value;
+            if (mode === 'letters') return morseLetters;
+            if (mode === 'numbers') return morseNumbers;
+            return { ...morseLetters, ...morseNumbers };
+        }
+
+        function getRandomSymbol() {
+            const set = getSelectedSet();
+            return set[Math.floor(Math.random() * set.length)];
+        }
+
+        function playMorse(symbol) {
+            const freq = parseFloat(document.getElementById('frequency').value) || 700;
+            const volume = parseFloat(document.getElementById('volume').value) || 0.5;
+            const dict = getMorseDict();
+            const morse = dict[symbol.toUpperCase()];
+            if (!morse) return;
+
+            const speed = document.getElementById('speedMode').value;
+            let dotDuration, dashDuration, interElementPause;
+
+            if (speed === 'fast') {
+                dotDuration = 0.06;
+                dashDuration = dotDuration * 3;
+                interElementPause = 0.05;
+            } else {
+                dotDuration = 0.1;
+                dashDuration = 0.3;
+                interElementPause = 0.1;
+            }
+
+            let time = audioCtx.currentTime;
+
+            for (let ch of morse) {
+                let duration = (ch === '.') ? dotDuration : dashDuration;
+                let oscillator = audioCtx.createOscillator();
+                let gainNode = audioCtx.createGain();
+
+                oscillator.frequency.setValueAtTime(freq, time);
+                gainNode.gain.setValueAtTime(volume, time);
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                oscillator.start(time);
+                oscillator.stop(time + duration);
+
+                time += duration + interElementPause;
+            }
+        }
+
+        function showNextSymbol() {
+            currentSymbol = getRandomSymbol();
+            document.getElementById('symbolDisplay').innerText = 'Слушай...';
+            document.getElementById('feedback').innerText = '';
+            playMorse(currentSymbol);
+
+            setTimeout(() => {
+                document.getElementById('symbolDisplay').innerText = 'Введи символ с клавиатуры';
+            }, 1000);
+        }
+
+        function startSession() {
+            const mode = document.getElementById('mode').value;
+            isSpeedMode = (mode === 'speed');
+
+            correctCount = 0;
+            totalCount = 0;
+
+            if (isSpeedMode) {
+                testStartTime = Date.now();
+                testTimer = setTimeout(() => {
+                    currentSymbol = '';
+                    document.getElementById('symbolDisplay').innerText = '⏰ Время вышло!';
+                    const cpm = (correctCount / (testDuration / 60000)).toFixed(1);
+                    document.getElementById('feedback').innerHTML = `
+                        ✅ Верных: ${correctCount} из ${totalCount}<br/>
+                        ⚡ Скорость: ${cpm} символов/мин
+                    `;
+                }, testDuration);
+            }
+
+            showNextSymbol();
+        }
+
+        document.addEventListener('keydown', function (e) {
+            if (!currentSymbol) return;
+
+            const key = e.key.toUpperCase();
+            let userInput = translit[key] || key;
+            totalCount++;
+
+            if (userInput === currentSymbol) {
+                correctCount++;
+                document.getElementById('feedback').innerText = '✅ Верно!';
+                document.getElementById('feedback').style.color = 'green';
+            } else {
+                document.getElementById('feedback').innerHTML = `
+                    ❌ Неверно. Это было: <b>${currentSymbol}</b><br/>
+                    <a href="/Obuchenie/Errors" style="color: orange; text-decoration: underline;">
+                        Проработать ошибки?
+                    </a>
+                `;
+                document.getElementById('feedback').style.color = 'red';
+
+                fetch('/ErrorStat/LogError', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ Symbol: currentSymbol })
+                });
+            }
+
+            currentSymbol = '';
+            if (!isSpeedMode || Date.now() - testStartTime < testDuration) {
+                setTimeout(showNextSymbol, 1500);
+            }
+        });
+    </script>
+}

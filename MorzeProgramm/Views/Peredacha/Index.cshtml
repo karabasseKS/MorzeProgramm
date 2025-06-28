@@ -1,0 +1,107 @@
+﻿@{
+    ViewData["Title"] = "Передача";
+}
+
+<h2>Тренировка передачи азбуки Морзе</h2>
+
+<label>Количество групп: <input type="number" id="groupCount" value="3" min="1" /></label>
+<button id="startTrainingBtn">▶ Начать тренировку</button>
+
+<p><strong>Текущая группа:</strong> <span id="targetGroup">-</span></p>
+<p>Введённый код (Morse): <span id="morseCode"></span></p>
+<p>Расшифровка: <span id="decodedText"></span></p>
+<p id="result"></p>
+<p id="summary"></p>
+
+<script>
+    const morseDict = {
+        '.-': 'А', '-...': 'Б', '-.-.': 'Ц', '-..': 'Д', '.': 'Е',
+        '..-.': 'Ф', '--.': 'Г', '....': 'Х', '..': 'И', '.---': 'Й',
+        '-.-': 'К', '.-..': 'Л', '--': 'М', '-.': 'Н', '---': 'О',
+        '.--.': 'П', '--.-': 'Щ', '.-.': 'Р', '...': 'С', '-': 'Т',
+        '..-': 'У', '...-': 'Ж', '.--': 'В', '-..-': 'Ь', '-.--': 'Ы', '--..': 'З','.-.-':'Я','..--': 'Ю'
+    };
+
+    const words = ["АКТЕР", "ЕРМАК", "ПОЛЕТ", "САПЕР", "ФИГНЯ", "ЦАПЛЯ", "РАЦИЯ", "КОПЬЕ", "КАПЛЯ", "МАФИЯ"];
+    let currentWord = "";
+    let morse = '';
+    let decoded = '';
+    let timer = null;
+    let keyPressStart = 0;
+
+    let totalGroups = 0;
+    let currentGroupIndex = 0;
+    let correctCount = 0;
+
+    document.getElementById("startTrainingBtn").addEventListener("click", () => {
+        totalGroups = parseInt(document.getElementById("groupCount").value);
+        currentGroupIndex = 0;
+        correctCount = 0;
+
+        document.getElementById("summary").innerText = "";
+        nextGroup();
+    });
+
+    function nextGroup() {
+        if (currentGroupIndex >= totalGroups) {
+            document.getElementById("summary").innerText = `✅ Правильно: ${correctCount} из ${totalGroups}`;
+            document.getElementById("targetGroup").innerText = "-";
+            return;
+        }
+
+        currentWord = words[Math.floor(Math.random() * words.length)];
+        document.getElementById("targetGroup").innerText = currentWord;
+        document.getElementById("morseCode").innerText = "";
+        document.getElementById("decodedText").innerText = "";
+        document.getElementById("result").innerText = "";
+
+        morse = "";
+        decoded = "";
+        currentGroupIndex++;
+    }
+
+    document.addEventListener("keydown", function (e) {
+        if (e.code === "Space" && keyPressStart === 0) {
+            e.preventDefault();
+            keyPressStart = new Date().getTime();
+            if (timer) clearTimeout(timer);
+        }
+    });
+
+    document.addEventListener("keyup", function (e) {
+        if (e.code === "Space") {
+            e.preventDefault();
+            const keyPressEnd = new Date().getTime();
+            const duration = keyPressEnd - keyPressStart;
+            keyPressStart = 0;
+
+            if (duration < 150) {
+                morse += '.';
+            } else {
+                morse += '-';
+            }
+
+            document.getElementById("morseCode").innerText = morse;
+
+            timer = setTimeout(() => {
+                const letter = morseDict[morse] || '?';
+                decoded += letter;
+                document.getElementById("decodedText").innerText = decoded;
+                morse = '';
+
+                if (decoded.length === currentWord.length) {
+                    if (decoded === currentWord) {
+                        document.getElementById("result").innerText = "✅ Верно!";
+                        correctCount++;
+                    } else {
+                        document.getElementById("result").innerText = `❌ Неверно! Было: ${currentWord}`;
+                    }
+
+                    setTimeout(() => {
+                        nextGroup();
+                    }, 1500);
+                }
+            }, 1000);
+        }
+    });
+</script>

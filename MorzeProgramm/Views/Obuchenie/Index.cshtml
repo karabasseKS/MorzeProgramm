@@ -1,0 +1,22 @@
+﻿@model List<MorzeProgramm.Models.BlockListItem>
+
+
+<h2>Выбери блок для изучения</h2>
+
+<ul>
+    @foreach (var block in Model)
+    {
+        <li>
+            <a href="@Url.Action("Block", "Obuchenie", new { id = block.BlockId })">
+                Группа @block.BlockId: @string.Join(", ", block.Letters)
+            </a>
+
+            @if (block.ProgressPercent.HasValue)
+            {
+                <span class="ms-2 @(block.ProgressPercent >= 80 ? "text-success" : block.ProgressPercent >= 50 ? "text-warning" : "text-danger")">
+                    — Прогресс: @Math.Round(block.ProgressPercent.Value)% @(block.IsCompleted ? "✅" : "")
+                </span>
+            }
+        </li>
+    }
+</ul>

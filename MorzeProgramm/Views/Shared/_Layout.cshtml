@@ -1,0 +1,55 @@
+﻿@using Microsoft.AspNetCore.Identity
+@using MorzeProgramm.Models
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
+<script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+<script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - MorzeProgramm</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/WebApplication1.styles.css" asp-append-version="true" />
+</head>
+<body>
+    <header>
+        <span class="logo"></span>
+        <nav>
+            <a href="/">Главная</a>
+            <a href="/Obuchenie">Обучение</a>
+            <a href="/Priem">Приём символов</a>
+            <a href="/Peredacha">Передача символов</a>
+            <a href="/Registration">Страница регистрации</a>
+
+            @if (SignInManager.IsSignedIn(User))
+            {
+                <span style="margin-left: 15px;">Привет, @UserManager.GetUserAsync(User).Result?.Nickname!</span>
+                <form method="post" asp-controller="Account" asp-action="Logout" style="display:inline;">
+                    <button type="submit" class="btn btn-link">Выйти</button>
+                </form>
+            }
+            else
+            {
+                <a href="/Account/Login" style="margin-left: 15px;">Войти</a>
+                <a href="/Account/Register" style="margin-left: 5px;">Регистрация</a>
+            }
+        </nav>
+    </header>
+
+    <main>
+        @RenderBody()
+    </main>
+
+    <footer>
+        Все права защищены
+    </footer>
+
+    @RenderSection("Scripts", required: false)
+</body>
+</html>

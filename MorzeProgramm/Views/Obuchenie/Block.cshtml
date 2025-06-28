@@ -1,0 +1,181 @@
+﻿@model MorzeProgramm.Models.BlockViewModel
+@Html.AntiForgeryToken()
+@{
+    ViewData["Title"] = "Обучение блока " + Model.BlockId;
+}
+
+<h2>Блок @Model.BlockId</h2>
+
+<h3>Символы этого блока:</h3>
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Символ</th>
+            <th>Код Морзе</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var letter in Model.Letters)
+        {
+            <tr>
+                <td>@letter</td>
+                <td>@Model.MorseMap[letter]</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<hr />
+
+<button id="startQuizBtn" class="btn btn-primary">Начать квиз</button>
+
+<div style="margin-top: 20px;">
+    <p id="currentPrompt" style="font-size: 24px;">Нажмите "Начать квиз"</p>
+    <p id="quizResult"></p>
+</div>
+
+@section Scripts {
+    <script>
+        const symbols = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Letters));
+        const morseMap = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.MorseMap));
+
+        let quizSequence = [];
+        let currentIndex = 0;
+        let correctCount = 0;
+
+        let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playTone(frequency, duration, startTime) {
+            const oscillator = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            oscillator.frequency.value = frequency;
+            gain.gain.value = 0.5;
+
+            oscillator.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            oscillator.start(startTime);
+            oscillator.stop(startTime + duration);
+        }
+
+        function playMorse(morse, startTime) {
+            let time = startTime;
+            for (let ch of morse) {
+                let duration = (ch === '.') ? 0.1 : 0.3;
+                playTone(700, duration, time);
+                time += duration + 0.1;
+            }
+            return time;
+        }
+
+        function getRandomSymbol() {
+            return symbols[Math.floor(Math.random() * symbols.length)];
+        }
+
+        function generateQuizSequence() {
+            let sequence = [];
+            for (let i = 0; i < 50; i++) {
+                sequence.push(getRandomSymbol());
+            }
+            return sequence;
+        }
+
+        function startQuiz() {
+            quizSequence = generateQuizSequence();
+            currentIndex = 0;
+            correctCount = 0;
+
+            document.getElementById("quizResult").innerText = "";
+            document.getElementById("currentPrompt").innerText = "Внимание... Квиз начинается.";
+
+            setTimeout(() => {
+                playNextSymbol();
+            }, 1000);
+        }
+
+        function playNextSymbol() {
+            if (currentIndex >= quizSequence.length) {
+                showFinalResult();
+                return;
+            }
+
+            let symbol = quizSequence[currentIndex];
+            const morse = morseMap[symbol];
+            let startTime = audioCtx.currentTime + 0.1;
+            playMorse(morse, startTime);
+
+            const morseDuration = morse.length * 0.2 + 0.3;
+            setTimeout(() => {
+                document.getElementById("currentPrompt").innerText = "Введите услышанный символ...";
+            }, morseDuration * 1000 + 300);
+        }
+
+        function showFinalResult() {
+            const percent = Math.round((correctCount / quizSequence.length) * 100);
+            let msg = `Квиз завершён. Результат: ${correctCount} из ${quizSequence.length} (${percent}%)`;
+
+            if (percent >= 80) {
+                msg += " ✅ Отличная работа! Блок пройден.";
+            } else {
+                msg += " ❌ Нужно потренироваться ещё.";
+            }
+
+            document.getElementById("quizResult").innerText = msg;
+
+            @if (User.Identity.IsAuthenticated)
+            {
+                <text>console.log("Пользователь авторизован, отправляем прогресс...");</text>
+            }
+            else
+            {
+                <text>console.log("Не авторизован — прогресс не будет сохранён.");</text>
+            }
+
+            @if (User.Identity.IsAuthenticated)
+            {
+                <text>
+                    fetch('/Obuchenie/SaveProgress', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': document.querySelector('[name=__RequestVerificationToken]').value
+                        },
+                        body: JSON.stringify({
+                            blockId: @Model.BlockId,
+                            percent: percent
+                        })
+                    });
+                </text>
+            }
+        }
+
+        document.getElementById("startQuizBtn").addEventListener("click", startQuiz);
+
+        document.addEventListener("keydown", function (e) {
+            if (currentIndex >= quizSequence.length) return;
+
+            const key = e.key.toUpperCase();
+
+            const translit = {
+                'F': 'А', ',': 'Б', 'D': 'В', 'U': 'Г', 'L': 'Д', 'T': 'Е',
+                ';': 'Ж', 'P': 'З', 'B': 'И', 'Q': 'Й', 'R': 'К', 'K': 'Л',
+                'V': 'М', 'Y': 'Н', 'J': 'О', 'G': 'П', 'H': 'Р', 'C': 'С',
+                'N': 'Т', 'E': 'У', 'A': 'Ф', '[': 'Х', 'W': 'Ц', 'X': 'Ч',
+                'I': 'Ш', 'O': 'Щ', ']': 'Ъ', 'Z': 'Ы', 'M': 'Ь', '\'': 'Э',
+                '.': 'Ю', '/': 'Я'
+            };
+
+            let userInput = translit[key] || key;
+
+            const expected = quizSequence[currentIndex];
+
+            if (userInput === expected) {
+                correctCount++;
+            }
+
+            currentIndex++;
+            playNextSymbol();
+        });
+    </script>
+}
